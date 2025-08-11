@@ -1,2 +1,2 @@
 # Chess-Bot
-An AI chess bot that will play chess with the user.
+Chess Bot in Python utilizing Alpha-Beta Pruning, Quiescence Search, and Iterative Deepening to allow for a user to play an console Chess game against an advanced AI.
