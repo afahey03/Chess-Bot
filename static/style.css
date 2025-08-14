@@ -1,0 +1,414 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  flex: 1;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  text-align: center;
+  color: white;
+  margin-bottom: 30px;
+}
+
+header h1 {
+  font-size: 2.5em;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.subtitle {
+  font-size: 1.1em;
+  opacity: 0.95;
+}
+
+.game-container {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.sidebar {
+  width: 250px;
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar h3 {
+  color: #333;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.board-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.board-wrapper {
+  position: relative;
+}
+
+.chess-board {
+  display: grid;
+  grid-template-columns: repeat(8, 70px);
+  grid-template-rows: repeat(8, 70px);
+  border: 3px solid #333;
+  border-radius: 4px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  background: white;
+}
+
+.square {
+  width: 70px;
+  height: 70px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  font-size: 50px;
+  transition: all 0.2s;
+}
+
+.square.light {
+  background-color: #f0d9b5;
+}
+
+.square.dark {
+  background-color: #b58863;
+}
+
+.square:hover {
+  opacity: 0.8;
+}
+
+.square.selected {
+  background-color: #7fa650 !important;
+  box-shadow: inset 0 0 0 3px #5e7a3a;
+}
+
+.square.possible-move::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+}
+
+.square.possible-capture::after {
+  content: '';
+  position: absolute;
+  width: 65px;
+  height: 65px;
+  border: 3px solid rgba(0, 0, 0, 0.3);
+  border-radius: 50%;
+}
+
+.square.last-move {
+  background-color: #cdd26a !important;
+}
+
+.square.in-check {
+  background-color: #ff6b6b !important;
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+.btn {
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #e0e0e0;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  padding: 10px;
+  background: #f0f0f0;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.turn-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #e8f5e9;
+  border-radius: 6px;
+  color: #2e7d32;
+}
+
+.move-list {
+  max-height: 300px;
+  overflow-y: auto;
+  background: #f9f9f9;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.move-entry {
+  display: flex;
+  padding: 5px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.move-number {
+  font-weight: bold;
+  margin-right: 10px;
+  color: #666;
+}
+
+.move-notation {
+  flex: 1;
+}
+
+.white-move {
+  margin-right: 15px;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal.active {
+  display: flex;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 400px;
+  animation: slideIn 0.3s;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-content h2,
+.modal-content h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.color-buttons {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.color-btn {
+  flex: 1;
+  padding: 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.white-btn {
+  background: #f0f0f0;
+  color: #333;
+  border: 2px solid #333;
+}
+
+.black-btn {
+  background: #333;
+  color: white;
+}
+
+.color-btn:hover {
+  transform: scale(1.05);
+}
+
+.piece-icon {
+  font-size: 48px;
+}
+
+.promotion-pieces {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.promotion-btn {
+  width: 70px;
+  height: 70px;
+  font-size: 50px;
+  border: 2px solid #333;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.promotion-btn:hover {
+  background: #f0f0f0;
+  transform: scale(1.1);
+}
+
+.captured-pieces {
+  margin-top: 20px;
+}
+
+.captured-section {
+  margin-bottom: 15px;
+}
+
+.captured-label {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.pieces-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-height: 30px;
+  padding: 5px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.captured-piece {
+  font-size: 24px;
+}
+
+.settings {
+  margin-top: 20px;
+}
+
+.setting-group {
+  margin-bottom: 15px;
+}
+
+.setting-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.setting-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+footer {
+  text-align: center;
+  padding: 20px;
+  color: white;
+  opacity: 0.9;
+}
+
+@media (max-width: 1200px) {
+  .sidebar.right {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .game-container {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .sidebar {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .chess-board {
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+  }
+
+  .square {
+    width: 60px;
+    height: 60px;
+    font-size: 40px;
+  }
+}

@@ -128,7 +128,7 @@ class TTEntry:
     flag: int   # 0=exact, -1=alpha, 1=beta
     move: chess.Move | None
 
-class StrongChessAI:
+class ChessAI:
     def __init__(self, book_path: str | None = None):
         self.book = None
         if book_path:
@@ -490,7 +490,7 @@ def print_board(board: chess.Board, player_color: bool):
     print()
 
 def play_chess(book_path: str | None = None, max_depth: int = 8, move_time: float = 2.0):
-    ai = StrongChessAI(book_path)
+    ai = ChessAI(book_path)
     board = chess.Board()
 
     print("\nWelcome to Chess against AI!")

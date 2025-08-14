@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess AI Game</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="container">
+    <header>
+      <h1>Chess AI</h1>
+      <p class="subtitle">Test your skills against an intelligent chess engine</p>
+    </header>
+
+    <div class="game-container">
+      <div class="sidebar left">
+        <div class="game-info">
+          <h3>Game Status</h3>
+          <div id="status" class="status">Click "New Game" to start</div>
+          <div id="turn-indicator" class="turn-indicator"></div>
+        </div>
+
+        <div class="captured-pieces">
+          <h3>Captured Pieces</h3>
+          <div class="captured-section">
+            <div class="captured-label">White captured:</div>
+            <div id="white-captured" class="pieces-row"></div>
+          </div>
+          <div class="captured-section">
+            <div class="captured-label">Black captured:</div>
+            <div id="black-captured" class="pieces-row"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="board-container">
+        <div class="board-wrapper">
+          <div id="chess-board" class="chess-board"></div>
+          <div class="coordinates">
+            <div class="files"></div>
+            <div class="ranks"></div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="new-game" class="btn btn-primary">New Game</button>
+          <button id="flip-board" class="btn btn-secondary">Flip Board</button>
+        </div>
+      </div>
+
+      <div class="sidebar right">
+        <div class="move-history">
+          <h3>Move History</h3>
+          <div id="move-list" class="move-list"></div>
+        </div>
+
+        <div class="settings">
+          <h3>Settings</h3>
+          <div class="setting-group">
+            <label for="ai-difficulty">AI Difficulty:</label>
+            <select id="ai-difficulty">
+              <option value="easy">Easy (depth 4)</option>
+              <option value="medium" selected>Medium (depth 6)</option>
+              <option value="hard">Hard (depth 8)</option>
+              <option value="expert">Expert (depth 10)</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <label for="move-time">AI Think Time:</label>
+            <select id="move-time">
+              <option value="1">1 second</option>
+              <option value="2" selected>2 seconds</option>
+              <option value="3">3 seconds</option>
+              <option value="5">5 seconds</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="color-modal" class="modal">
+      <div class="modal-content">
+        <h2>Choose Your Color</h2>
+        <p>Select which color you want to play as:</p>
+        <div class="color-buttons">
+          <button id="choose-white" class="color-btn white-btn">
+            <span class="piece-icon">♔</span>
+            <span>Play as White</span>
+          </button>
+          <button id="choose-black" class="color-btn black-btn">
+            <span class="piece-icon">♚</span>
+            <span>Play as Black</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="promotion-modal" class="modal">
+      <div class="modal-content promotion-content">
+        <h3>Pawn Promotion</h3>
+        <p>Choose a piece to promote to:</p>
+        <div class="promotion-pieces">
+          <button class="promotion-btn" data-piece="q">♕</button>
+          <button class="promotion-btn" data-piece="r">♖</button>
+          <button class="promotion-btn" data-piece="b">♗</button>
+          <button class="promotion-btn" data-piece="n">♘</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="game-over-modal" class="modal">
+      <div class="modal-content">
+        <h2 id="game-result">Game Over</h2>
+        <p id="game-message"></p>
+        <button id="play-again" class="btn btn-primary">Play Again</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Made using FastAPI.</p>
+    <p>© 2025 Aidan Fahey. All rights reserved.</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+
+</html>
