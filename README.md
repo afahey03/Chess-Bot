@@ -176,4 +176,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Enjoy playing chess! ♟️**
+---
 **WARNING!!! THE AI IS NOT THAT GOOD YET!!!**
