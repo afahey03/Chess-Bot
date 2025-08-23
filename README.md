@@ -177,4 +177,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **Enjoy playing chess! ♟️**
 ---
-**WARNING!!! THE AI IS NOT THAT GOOD YET!!!**
+**I am having some difficulties pushing changes to this repo, sadly might have to give up on it for a while**
