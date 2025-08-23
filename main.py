@@ -1,7 +1,9 @@
 
 import chess
 import chess.polyglot
-import math
+import torch
+from model import ChessNet
+from data_processor import board_to_tensor
 import random
 import time
 from dataclasses import dataclass
@@ -125,30 +127,32 @@ PST_MAP = {
 class TTEntry:
     depth: int
     score: int
-    flag: int   # 0=exact, -1=alpha, 1=beta
+    flag: int
     move: chess.Move | None
 
 class ChessAI:
-    def __init__(self, book_path: str | None = None):
-        self.book = None
-        if book_path:
-            try:
-                self.book = chess.polyglot.open_reader(book_path)
-            except Exception:
-                self.book = None
+    def __init__(self, book_path: str | None = None, model_path: str = "chess_net.pth"):
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model = ChessNet().to(self.device)
+        try:
+            self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+            self.model.eval() 
+            print(f"Successfully loaded model from {model_path}")
+        except FileNotFoundError:
+            print(f"Warning: Model file not found at {model_path}. Evaluation will be random.")
+            self.model = None
+        # ----------------------------------
 
         self.tt: dict[int, TTEntry] = {}
-        self.killer_moves: dict[int, list[chess.Move]] = {}  # depth -> [killer1, killer2]
-        self.history_heuristic: dict[tuple[int, int], int] = {}  # (from,to) -> score
+        self.killer_moves: dict[int, list[chess.Move]] = {}
+        self.history_heuristic: dict[tuple[int, int], int] = {}
 
-        # time controls
-        self.hard_time_limit = 3.0   # absolute max per move (seconds)
-        self.soft_time_limit = 2.0   # typical thinking time per move (seconds)
+        self.hard_time_limit = 3.0
+        self.soft_time_limit = 2.0
 
-    # --------- Keys ---------
 
     def tt_key(self, board: chess.Board) -> int:
-        # Try to use a stable, fast hash if available
         try:
             return board.transposition_key()
         except Exception:
@@ -157,66 +161,26 @@ class ChessAI:
             except Exception:
                 return hash(board.board_fen()) ^ hash(board.castling_rights) ^ hash(board.ep_square)
 
-    # --------- Evaluation ---------
 
     def evaluate(self, board: chess.Board) -> int:
-        # Check game end
+        """
+        Evaluates the board using the trained neural network.
+        """
         if board.is_checkmate():
-            return -MATE_SCORE + 1 if board.turn else MATE_SCORE - 1
+            return -MATE_SCORE + 1 if board.turn == chess.WHITE else MATE_SCORE - 1
         if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_fifty_moves():
             return DRAW_SCORE
+        
+        if self.model is None:
+            return 0 
 
-        mg = 0
-        eg = 0
+        with torch.no_grad():
+            tensor = board_to_tensor(board).unsqueeze(0).to(self.device)
+            value = self.model(tensor).item() 
 
-        # Material + PSTs
-        for color in [chess.WHITE, chess.BLACK]:
-            signc = 1 if color == chess.WHITE else -1
+        score = int(value * 600) 
 
-            for piece_type, (pst_mg, pst_eg) in PST_MAP.items():
-                squares = board.pieces(piece_type, color)
-                pv_mg = PIECE_VALUES_MG[piece_type] if piece_type in PIECE_VALUES_MG else 0
-                pv_eg = PIECE_VALUES_EG[piece_type] if piece_type in PIECE_VALUES_EG else 0
-
-                for sq in squares:
-                    mg += signc * pv_mg
-                    eg += signc * pv_eg
-                    if pst_mg is not None:
-                        mg += signc * pst_mg[sq if color == chess.WHITE else mirror_index(sq)]
-                    if pst_eg is not None:
-                        eg += signc * pst_eg[sq if color == chess.WHITE else mirror_index(sq)]
-
-        # Bishop pair
-        if len(board.pieces(chess.BISHOP, chess.WHITE)) >= 2:
-            mg += 30; eg += 40
-        if len(board.pieces(chess.BISHOP, chess.BLACK)) >= 2:
-            mg -= 30; eg -= 40
-
-        # Rooks on (semi-)open files
-        mg += self._rooks_file_bonus(board, chess.WHITE)
-        mg -= self._rooks_file_bonus(board, chess.BLACK)
-
-        # Pawn structure: doubled/isolated (lightweight)
-        mg += self._pawn_structure(board, chess.WHITE)
-        mg -= self._pawn_structure(board, chess.BLACK)
-
-        # Mobility (very light)
-        turn_save = board.turn
-        board.turn = chess.WHITE
-        wm = board.legal_moves.count()
-        board.turn = chess.BLACK
-        bm = board.legal_moves.count()
-        board.turn = turn_save
-        mg += (wm - bm)
-
-        # Tapered eval
-        phase = phase_score(board)
-        score = (mg * phase + eg * (24 - phase)) // 24
-
-        # Tempo
-        score += 10 if board.turn == chess.WHITE else -10
-
-        return score
+        return score if board.turn == chess.WHITE else -score
 
     def _rooks_file_bonus(self, board: chess.Board, color: bool) -> int:
         bonus = 0
@@ -228,9 +192,9 @@ class ChessAI:
             has_enemy_pawn = any((s in pawns) for s in file_mask)
             has_my_pawn = any((s in mypawns) for s in file_mask)
             if not has_my_pawn and not has_enemy_pawn:
-                bonus += 15  # open file
+                bonus += 15
             elif not has_my_pawn and has_enemy_pawn:
-                bonus += 8  # semi-open
+                bonus += 8 
         return bonus
 
     def _pawn_structure(self, board: chess.Board, color: bool) -> int:
@@ -238,19 +202,16 @@ class ChessAI:
         if not pawns: return 0
         files = [chess.square_file(p) for p in pawns]
         score = 0
-        # doubled
         for f in range(8):
             cnt = files.count(f)
             if cnt > 1:
                 score -= 15 * (cnt - 1)
-        # isolated
         file_set = set(files)
         for f in files:
             if (f-1) not in file_set and (f+1) not in file_set:
                 score -= 12
         return score
 
-    # --------- Move ordering ---------
 
     MVV_LVA_SCORES = None
 
@@ -281,7 +242,6 @@ class ChessAI:
             if mv in killers:
                 score += 50_000
             score += hist.get((mv.from_square, mv.to_square), 0)
-            # prefer promotions
             if mv.promotion:
                 score += 150_000 + (mv.promotion * 10)
             scored.append((score, mv))
@@ -295,7 +255,6 @@ class ChessAI:
             if len(arr) > 2:
                 arr.pop()
 
-    # --------- Search ---------
 
     def quiescence(self, board: chess.Board, alpha: int, beta: int, ply: int) -> int:
         stand = self.evaluate(board)
@@ -304,12 +263,10 @@ class ChessAI:
         if alpha < stand:
             alpha = stand
 
-        # Only good captures and checks to avoid horizon effect
         moves = [m for m in board.legal_moves if board.is_capture(m) or board.gives_check(m)]
         moves = self.order_moves(board, moves, None, ply)
 
         for mv in moves:
-            # Delta pruning (skip obviously bad captures)
             if not board.is_capture(mv) and not board.gives_check(mv):
                 continue
             board.push(mv)
@@ -323,7 +280,6 @@ class ChessAI:
         return alpha
 
     def negamax(self, board: chess.Board, depth: int, alpha: int, beta: int, ply: int, start_time: float) -> int:
-        # Time check
         if time.time() - start_time > self.hard_time_limit:
             return self.evaluate(board)
 
@@ -343,7 +299,6 @@ class ChessAI:
         if depth <= 0 or board.is_game_over():
             return self.quiescence(board, alpha, beta, ply)
 
-        # Null move pruning
         if depth >= 3 and not board.is_check() and any(board.pieces(pt, board.turn) for pt in [chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT]):
             board.push(chess.Move.null())
             score = -self.negamax(board, depth-2, -beta, -beta+1, ply+1, start_time)
@@ -351,7 +306,6 @@ class ChessAI:
             if score >= beta:
                 return score
 
-        # Internal iterative deepening to find a good tt move
         tt_move = tt_entry.move if tt_entry else None
 
         moves = list(board.legal_moves)
@@ -363,13 +317,11 @@ class ChessAI:
 
         for i, mv in enumerate(moves):
             board.push(mv)
-            # Late move reduction
             new_depth = depth - 1
             if i >= 4 and depth >= 3 and not board.is_capture(mv) and not board.gives_check(mv):
                 score = -self.negamax(board, new_depth-1, -alpha-1, -alpha, ply+1, start_time)
             else:
                 score = -self.negamax(board, new_depth, -beta, -alpha, ply+1, start_time)
-            # PVS re-search
             if score > alpha and score < beta and i > 0:
                 score = -self.negamax(board, new_depth, -beta, -alpha, ply+1, start_time)
             board.pop()
@@ -379,21 +331,18 @@ class ChessAI:
                 best_move = mv
             if score > alpha:
                 alpha = score
-                # good move improves history
                 if not board.is_capture(mv):
                     self.history_heuristic[(mv.from_square, mv.to_square)] = self.history_heuristic.get((mv.from_square, mv.to_square), 0) + depth*depth
             if alpha >= beta:
-                # store killer on cutoff
                 if not board.is_capture(mv):
                     self.store_killer(ply, mv)
                 break
 
-        # Store TT
         flag = 0
         if best_score <= original_alpha:
-            flag = -1  # alpha
+            flag = -1 
         elif best_score >= beta:
-            flag = 1   # beta
+            flag = 1 
         self.tt[key] = TTEntry(depth=depth, score=best_score, flag=flag, move=best_move)
 
         return best_score
@@ -402,12 +351,10 @@ class ChessAI:
         self.soft_time_limit = max(0.5, move_time * 0.9)
         self.hard_time_limit = max(move_time, self.soft_time_limit + 0.2)
 
-        # Try opening book
         if self.book:
             try:
                 entries = list(self.book.find_all(board))
                 if entries:
-                    # choose the highest-weighted entry deterministically
                     best = max(entries, key=lambda e: e.weight)
                     return best.move
             except Exception:
@@ -417,7 +364,6 @@ class ChessAI:
         best_move = None
         best_score = -INFTY
 
-        # Iterative deepening with aspiration windows
         alpha, beta = -INFTY, INFTY
         for depth in range(1, max_depth + 1):
             if time.time() - start > self.soft_time_limit:
@@ -427,7 +373,6 @@ class ChessAI:
             current_best = None
             moves = self.order_moves(board, list(board.legal_moves), None, 0)
 
-            # Aspiration window: narrow window around previous best to speed up
             a, b = (best_score - 50, best_score + 50) if best_move else (alpha, beta)
 
             for mv in moves:
@@ -436,7 +381,6 @@ class ChessAI:
                 board.push(mv)
                 val = -self.negamax(board, depth-1, -b, -a, 1, start)
                 if val <= a or val >= b:
-                    # research with full window
                     val = -self.negamax(board, depth-1, -INFTY, INFTY, 1, start)
                 board.pop()
 
@@ -450,12 +394,10 @@ class ChessAI:
                 best_move = current_best
                 best_score = score
 
-            # Hard stop
             if time.time() - start > self.hard_time_limit:
                 break
 
         if best_move is None:
-            # fallback
             best_move = random.choice(list(board.legal_moves))
         return best_move
 
@@ -521,11 +463,10 @@ def play_chess(book_path: str | None = None, max_depth: int = 8, move_time: floa
         else:
             print("AI is thinking...")
             start_time = time.time()
-            move = ai.search(board, max_depth=max_depth, move_time=move_time)  # Increase max_depth for strength
+            move = ai.search(board, max_depth=max_depth, move_time=move_time) 
             board.push(move)
             print(f"AI plays: {move.uci()} (in {time.time()-start_time:.2f}s)")
 
-    # Game over
     print("\nGame over!")
     print("Final position:\n")
     print_board(board, player_color)
@@ -538,4 +479,4 @@ def play_chess(book_path: str | None = None, max_depth: int = 8, move_time: floa
         print("It's a draw!\n")
 
 if __name__ == "__main__":
-    play_chess(book_path="Titans.bin", max_depth=10, move_time=2.5)
+    play_chess(book_path="Titans.bin", max_depth=6, move_time=3.0) # Increase depth and time for added difficulty
